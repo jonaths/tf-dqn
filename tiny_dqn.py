@@ -2,24 +2,25 @@ from __future__ import division, print_function, unicode_literals
 
 # Handle arguments (before slow imports so --help can be fast)
 import argparse
+
 parser = argparse.ArgumentParser(
     description="Train a DQN net to play MsMacman.")
 parser.add_argument("-n", "--number-steps", type=int, default=4000000,
-    help="total number of training steps")
+                    help="total number of training steps")
 parser.add_argument("-l", "--learn-iterations", type=int, default=4,
-    help="number of game iterations between each training step")
+                    help="number of game iterations between each training step")
 parser.add_argument("-s", "--save-steps", type=int, default=1000,
-    help="number of training steps between saving checkpoints")
+                    help="number of training steps between saving checkpoints")
 parser.add_argument("-c", "--copy-steps", type=int, default=10000,
-    help="number of training steps between copies of online DQN to target DQN")
+                    help="number of training steps between copies of online DQN to target DQN")
 parser.add_argument("-r", "--render", action="store_true", default=False,
-    help="render the game during training or testing")
+                    help="render the game during training or testing")
 parser.add_argument("-p", "--path", default="my_dqn.ckpt",
-    help="path of the checkpoint file")
+                    help="path of the checkpoint file")
 parser.add_argument("-t", "--test", action="store_true", default=False,
-    help="test (no learning and minimal epsilon)")
+                    help="test (no learning and minimal epsilon)")
 parser.add_argument("-v", "--verbosity", action="count", default=0,
-    help="increase output verbosity")
+                    help="increase output verbosity")
 args = parser.parse_args()
 
 from collections import deque
@@ -40,15 +41,16 @@ input_height = 88
 input_width = 80
 input_channels = 1
 conv_n_maps = [32, 64, 64]
-conv_kernel_sizes = [(8,8), (4,4), (3,3)]
+conv_kernel_sizes = [(8, 8), (4, 4), (3, 3)]
 conv_strides = [4, 2, 1]
-conv_paddings = ["SAME"] * 3 
+conv_paddings = ["SAME"] * 3
 conv_activation = [tf.nn.relu] * 3
 n_hidden_in = 64 * 11 * 10  # conv3 has 64 maps of 11x10 each
 n_hidden = 512
 hidden_activation = tf.nn.relu
 n_outputs = env.action_space.n  # 9 discrete actions are available
 initializer = tf.contrib.layers.variance_scaling_initializer()
+
 
 def q_network(X_state, name):
     prev_layer = X_state
@@ -71,6 +73,7 @@ def q_network(X_state, name):
     trainable_vars_by_name = {var.name[len(scope.name):]: var
                               for var in trainable_vars}
     return outputs, trainable_vars_by_name
+
 
 X_state = tf.placeholder(tf.float32, shape=[None, input_height, input_width,
                                             input_channels])
@@ -108,38 +111,44 @@ saver = tf.train.Saver()
 replay_memory_size = 20000
 replay_memory = deque([], maxlen=replay_memory_size)
 
+
 def sample_memories(batch_size):
     indices = np.random.permutation(len(replay_memory))[:batch_size]
-    cols = [[], [], [], [], []] # state, action, reward, next_state, continue
+    cols = [[], [], [], [], []]  # state, action, reward, next_state, continue
     for idx in indices:
         memory = replay_memory[idx]
         for col, value in zip(cols, memory):
             col.append(value)
     cols = [np.array(col) for col in cols]
     return (cols[0], cols[1], cols[2].reshape(-1, 1), cols[3],
-           cols[4].reshape(-1, 1))
+            cols[4].reshape(-1, 1))
+
 
 # And on to the epsilon-greedy policy with decaying epsilon
 eps_min = 0.1
 eps_max = 1.0 if not args.test else eps_min
 eps_decay_steps = args.number_steps // 2
 
+
 def epsilon_greedy(q_values, step):
-    epsilon = max(eps_min, eps_max - (eps_max-eps_min) * step/eps_decay_steps)
+    epsilon = max(eps_min, eps_max - (eps_max - eps_min) * step / eps_decay_steps)
     if np.random.rand() < epsilon:
-        return np.random.randint(n_outputs) # random action
+        return np.random.randint(n_outputs)  # random action
     else:
-        return np.argmax(q_values) # optimal action
+        return np.argmax(q_values)  # optimal action
+
 
 # We need to preprocess the images to speed up training
 mspacman_color = np.array([210, 164, 74]).mean()
 
+
 def preprocess_observation(obs):
-    img = obs[1:176:2, ::2] # crop and downsize
-    img = img.mean(axis=2) # to greyscale
-    img[img==mspacman_color] = 0 # Improve contrast
-    img = (img - 128) / 128 - 1 # normalize from -1. to 1.
+    img = obs[1:176:2, ::2]  # crop and downsize
+    img = img.mean(axis=2)  # to greyscale
+    img[img == mspacman_color] = 0  # Improve contrast
+    img = (img - 128) / 128 - 1  # normalize from -1. to 1.
     return img.reshape(88, 80, 1)
+
 
 # TensorFlow - Execution phase
 training_start = 10000  # start training after 10,000 game iterations
@@ -147,7 +156,7 @@ discount_rate = 0.99
 skip_start = 90  # Skip the start of every game (it's just waiting time).
 batch_size = 50
 iteration = 0  # game iterations
-done = True # env needs to be reset
+done = True  # env needs to be reset
 
 # We will keep track of the max Q-Value over time and compute the mean per game
 loss_val = np.infty
@@ -169,11 +178,11 @@ with tf.Session() as sess:
         if args.verbosity > 0:
             print("\rIteration {}   Training step {}/{} ({:.1f})%   "
                   "Loss {:5f}    Mean Max-Q {:5f}   ".format(
-            iteration, step, args.number_steps, step * 100 / args.number_steps,
-            loss_val, mean_max_q), end="")
-        if done: # game over, start again
+                iteration, step, args.number_steps, step * 100 / args.number_steps,
+                loss_val, mean_max_q), end="")
+        if done:  # game over, start again
             obs = env.reset()
-            for skip in range(skip_start): # skip the start of each game
+            for skip in range(skip_start):  # skip the start of each game
                 obs, reward, done, info = env.step(0)
             state = preprocess_observation(obs)
 
@@ -204,8 +213,8 @@ with tf.Session() as sess:
             game_length = 0
 
         if iteration < training_start or iteration % args.learn_iterations != 0:
-            continue # only train after warmup period and at regular intervals
-        
+            continue  # only train after warmup period and at regular intervals
+
         # Sample memories and use the target DQN to produce the target Q-Value
         X_state_val, X_action_val, rewards, X_next_state_val, continues = (
             sample_memories(batch_size))
@@ -224,4 +233,4 @@ with tf.Session() as sess:
 
         # And save regularly
         if step % args.save_steps == 0:
-            saver.save(sess, './'+args.path)
+            saver.save(sess, './' + args.path)
