@@ -53,7 +53,7 @@ PyOpenGL==3.1.0
 pyparsing==2.2.0
 pystun==0.1.0
 python-dateutil==2.7.3
-PyYAML==3.12
+PyYAML==5.4
 requests==2.19.1
 rsa==3.4.2
 s3transfer==0.1.13
