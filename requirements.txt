@@ -36,7 +36,7 @@ keychain==0.14.2.0
 keylib==0.1.1
 Markdown==2.6.11
 mock==2.0.0
-numpy==1.14.5
+numpy==1.22.0
 oauth2client==4.1.2
 onedrivesdk==1.1.8
 pbr==4.2.0
